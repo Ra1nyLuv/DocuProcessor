@@ -62,6 +62,12 @@
 
 ## 快速开始
 
+## 直接使用
+
+- 根据*_config.json*文件修改配置参数例如输入路径输出路径等等, 把需要处理的数据放在conversion_config.json中的default_input_path路径下, 运行convert_doc_to_md.py, 即可在default_output_path路径下生成结果文件
+- 一般*_config.json的输入路径和逻辑上的上一个config.json的输出路径一致
+- 默认输入路径为`raw_data`, 将数据放在`raw_data`目录下, 依次运行convert_doc_to_md.py, text_chunker.py, merge_json_files.py后, 即可得到result.json文件
+
 ### 使用Docker部署（推荐）
 
 ```bash
@@ -77,7 +83,7 @@ chmod +x docker_deploy.sh
 ./docker_deploy.sh
 ```
 
-### 直接运行
+### 直接运行api服务
 
 ```bash
 # 安装依赖
