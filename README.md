@@ -151,6 +151,40 @@ GET /api/v1/download/<task_id>/<filename>
 - filename：结果文件名
 ```
 
+## API使用
+
+服务提供以下RESTful API接口：
+
+### 健康检查
+
+```bash
+curl http://localhost:5000/health
+```
+
+### 单文档处理
+
+```bash
+curl -X POST -F "file=@document.docx" http://localhost:5000/api/v1/process-document
+```
+
+### 批量文档处理
+
+```bash
+curl -X POST \
+  -F "files=@doc1.docx" \
+  -F "files=@doc2.pdf" \
+  http://localhost:5000/api/v1/batch-process
+```
+
+### 下载处理结果
+
+```bash
+# 注意：文件路径需要进行URL编码
+curl -o result.json "http://localhost:5000/api/v1/download/{task_id}/{url_encoded_file_path}"
+```
+
+详细使用示例请参考 [API_USAGE_EXAMPLES.md](API_USAGE_EXAMPLES.md)。
+
 ## 配置说明
 
 ### 环境变量
@@ -211,7 +245,7 @@ python app.py
 
 ### 测试
 
-```bash
+```
 # 运行单元测试
 python -m pytest tests/
 

@@ -142,26 +142,43 @@ def process_document():
         logger.info(f"任务 {task_id}: 开始数据合并")
         merge_document_data(str(converted_dir), str(sliced_dir), str(merged_dir))
         
-        # 查找生成的合并文件
-        merged_files = list(merged_dir.glob("*_merged.json"))
+        # 查找生成的合并文件（现在在各自的文件夹中）
+        # 查找merged_dir下所有子目录中的result.json文件
+        merged_files = []
+        for subdir in merged_dir.iterdir():
+            if subdir.is_dir():
+                result_file = subdir / "result.json"
+                if result_file.exists():
+                    merged_files.append((subdir.name, result_file))
+        
         if not merged_files:
             raise Exception("未找到合并后的文件")
         
         # 将结果移动到处理目录
         result_dir = PROCESSED_FOLDER / task_id
         result_dir.mkdir(exist_ok=True)
-        shutil.copy(merged_files[0], result_dir)
+        
+        # 为每个文档创建对应的文件夹并复制result.json
+        result_filenames = []
+        for doc_name, result_file_path in merged_files:
+            doc_result_dir = result_dir / doc_name
+            doc_result_dir.mkdir(exist_ok=True)
+            shutil.copy(result_file_path, doc_result_dir / "result.json")
+            result_filenames.append(f"{doc_name}/result.json")
         
         # 清理临时文件
         cleanup_temp_files(task_id)
         
-        # 返回结果
-        result_filename = merged_files[0].name
+        # 返回结果（只返回第一个文档的结果，保持接口兼容性）
+        result_filename = result_filenames[0] if result_filenames else "result.json"
+        # URL编码文件路径
+        from urllib.parse import quote
+        encoded_filename = quote(result_filename, safe='')
         return jsonify({
             "task_id": task_id,
             "status": "completed",
             "result_file": result_filename,
-            "download_url": f"/api/v1/download/{task_id}/{result_filename}"
+            "download_url": f"/api/v1/download/{task_id}/{encoded_filename}"
         })
         
     except Exception as e:
@@ -230,21 +247,37 @@ def batch_process():
         result_dir = PROCESSED_FOLDER / task_id
         result_dir.mkdir(exist_ok=True)
         
-        merged_files = list(merged_dir.glob("*_merged.json"))
+        # 查找merged_dir下所有子目录中的result.json文件
+        merged_files = []
+        for subdir in merged_dir.iterdir():
+            if subdir.is_dir():
+                result_file = subdir / "result.json"
+                if result_file.exists():
+                    merged_files.append((subdir.name, result_file))
+        
+        if not merged_files:
+            raise Exception("未找到合并后的文件")
+        
+        # 为每个文档创建对应的文件夹并复制result.json
         result_files = []
-        for merged_file in merged_files:
-            shutil.copy(merged_file, result_dir)
-            result_files.append(merged_file.name)
+        for doc_name, result_file_path in merged_files:
+            doc_result_dir = result_dir / doc_name
+            doc_result_dir.mkdir(exist_ok=True)
+            shutil.copy(result_file_path, doc_result_dir / "result.json")
+            result_files.append(f"{doc_name}/result.json")
         
         # 清理临时文件
         cleanup_temp_files(task_id)
         
         # 返回结果
+        # URL编码所有文件路径
+        from urllib.parse import quote
+        download_urls = [f"/api/v1/download/{task_id}/{quote(filename, safe='')}" for filename in result_files]
         return jsonify({
             "task_id": task_id,
             "status": "completed",
             "result_files": result_files,
-            "download_urls": [f"/api/v1/download/{task_id}/{filename}" for filename in result_files]
+            "download_urls": download_urls
         })
         
     except Exception as e:
@@ -252,7 +285,7 @@ def batch_process():
         cleanup_temp_files(task_id)
         return jsonify({"error": f"批量处理失败: {str(e)}"}), 500
 
-@app.route('/api/v1/download/<task_id>/<filename>', methods=['GET'])
+@app.route('/api/v1/download/<task_id>/<path:filename>', methods=['GET'])
 def download_result(task_id: str, filename: str):
     """下载处理结果文件"""
     try:
@@ -260,14 +293,27 @@ def download_result(task_id: str, filename: str):
         from urllib.parse import unquote
         decoded_filename = unquote(filename)
         
+        # 处理新的目录结构（filename可能包含路径分隔符）
         result_path = PROCESSED_FOLDER / task_id / decoded_filename
         if not result_path.exists():
-            abort(404)
+            # 如果直接路径不存在，尝试处理可能的URL编码问题
+            # 将%2F转换回/
+            decoded_filename = decoded_filename.replace('%2F', '/')
+            result_path = PROCESSED_FOLDER / task_id / decoded_filename
+            if not result_path.exists():
+                logger.error(f"文件未找到: {result_path}")
+                abort(404)
         
+        # 提取实际的文件名用于下载
+        actual_filename = os.path.basename(decoded_filename)
+        if not actual_filename:
+            actual_filename = "result.json"
+        
+        logger.info(f"下载文件: {result_path}")
         return send_file(
             result_path,
             as_attachment=True,
-            download_name=decoded_filename
+            download_name=actual_filename
         )
     except Exception as e:
         logger.error(f"下载文件失败: {str(e)}")

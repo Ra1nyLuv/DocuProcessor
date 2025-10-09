@@ -265,14 +265,19 @@ def merge_document_data(converted_dir, sliced_dir, output_dir, enable_base64_pro
                     
             merged_data.append(new_chunk)
             
-        # Save merged data
-        output_file = os.path.join(output_dir, f"{doc_name}_merged.json")
+        # 修改保存逻辑：为每个文档创建单独的文件夹，并在其中保存result.json
+        # 创建文档对应的文件夹
+        doc_output_dir = os.path.join(output_dir, doc_name)
+        Path(doc_output_dir).mkdir(parents=True, exist_ok=True)
+        
+        # 在文档文件夹中保存result.json
+        output_file = os.path.join(doc_output_dir, "result.json")
         if save_json_file(merged_data, output_file):
             print(f"  Saved: {output_file}")
             # 添加到合并索引
             if save_merged_index:
                 merged_index[doc_name] = {
-                    "file": f"{doc_name}_merged.json",
+                    "file": f"{doc_name}/result.json",
                     "items_count": len(merged_data)
                 }
         else:
