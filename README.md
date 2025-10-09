@@ -17,7 +17,6 @@
 - [目录结构](#目录结构)
 - [开发指南](#开发指南)
 - [故障排除](#故障排除)
-- [许可证](#许可证)
 
 ## 项目简介
 
@@ -108,7 +107,6 @@ python app.py
 3. **简化版部署** - 移除复杂配置，提高构建成功率
 4. **生产环境部署** - 包含资源限制和性能优化
 
-详细部署说明请参考[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)。
 
 ### 直接运行
 
@@ -211,11 +209,6 @@ pip install markitdown[docx,pdf]
 python app.py
 ```
 
-### 代码规范
-- 遵循PEP 8代码规范
-- 使用类型注解
-- 编写单元测试
-
 ### 测试
 
 ```bash
@@ -256,6 +249,4 @@ docker compose logs -f
 tail -f app.log
 ```
 
-## 许可证
 
-本项目采用MIT许可证，详情请见[LICENSE](LICENSE)文件。
