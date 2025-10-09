@@ -1,0 +1,8 @@
+{
+    "default_input_converted_path": "converted_data",
+    "default_input_sliced_path": "sliced_data",
+    "default_output_path": "merged_data",
+    "enable_base64_processing": true,
+    "save_merged_index": false,
+    "merged_index_filename": "merged_index.json"
+}

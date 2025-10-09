@@ -1,0 +1,27 @@
+{
+    "chunk_min_length": 10,
+    "chunk_max_length": 150,
+    "overlap_min_length": 10,
+    "overlap_max_length": 50,
+    "semantic_patterns": [
+        "\\n#{1,6} ",
+        "\\n###+",
+        "\\n\\n\\*\\*[^\\n]+\\*\\*\\n",
+        "\\n\\n[A-Z][^\\n]*\\n\\n"
+    ],
+    "enable_overlap": false,
+    "save_chunk_index": true,
+    "chunk_index_filename": "chunk_index.json",
+    "default_input_path": "converted_data",
+    "default_output_path": "sliced_data",
+    "chunking_method": "semantic",
+    "chunk_by_length": {
+        "enabled": false,
+        "chunk_size": 100,
+        "chunk_overlap": 20
+    },
+    "chunk_by_paragraph": {
+        "enabled": false,
+        "max_chunk_size": 500
+    }
+}
