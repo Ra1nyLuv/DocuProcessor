@@ -1,0 +1,5 @@
+Flask==2.3.2
+Werkzeug==2.3.6
+markitdown[docx,pdf]
+PyMuPDF==1.23.5
+python-multipart==0.0.6
