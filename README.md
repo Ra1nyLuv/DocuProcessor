@@ -43,7 +43,7 @@
 
 ### 处理流程
 ```
-原始文档 → 文档转换 → 文本分块 → 数据合并 → JSON结果
+原始文档 → 文档转换(convert_doc_to_md.py) → 文本分块(text_chunker.py) → 数据合并(merge_json_files.py) → JSON结果
 ```
 
 ## 系统要求
