@@ -14,11 +14,11 @@ then
 fi
 
 # 激活conda环境
-echo "🔧 激活conda环境 'dl'..."
-if conda env list | grep -q "dl"; then
-    conda activate dl
+echo "🔧 激活conda环境 'main'..."
+if conda env list | grep -q "main"; then
+    conda activate main
 else
-    echo "❌ 未找到conda环境 'dl'，请先创建该环境"
+    echo "❌ 未找到conda环境 'main'，请先创建该环境"
     exit 1
 fi
 

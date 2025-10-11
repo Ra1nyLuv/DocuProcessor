@@ -61,68 +61,46 @@
 
 ## 快速开始
 
-## 直接使用
+### 手动使用独立功能
+### 可独立使用格式转换, 分块, 整理合并功能
+- 根据`*_config.json`文件修改配置参数例如输入路径输出路径等等, 把需要处理的数据放在`conversion_config.json`的`default_input_path`路径下 
+- 运行`convert_doc_to_md.py`, 即可在`default_output_path`路径下生成结果文件
+- 一般`*_config.json`的输入路径应该与逻辑上的上一个`*_config.json`的输出路径一致, 例如`conversion_config.json`的`default_output_path`路径应该与`chunk_config.json`的`default_input_path`路径一致
+- 默认输入路径为`raw_data`, 将数据放在`raw_data`目录下, 依次运行`convert_doc_to_md.py`, `text_chunker.py`, `merge_json_files.py`后, 即可得到最终的`result.json`文件
 
-- 根据*_config.json*文件修改配置参数例如输入路径输出路径等等, 把需要处理的数据放在conversion_config.json中的default_input_path路径下, 运行convert_doc_to_md.py, 即可在default_output_path路径下生成结果文件
-- 一般*_config.json的输入路径和逻辑上的上一个config.json的输出路径一致
-- 默认输入路径为`raw_data`, 将数据放在`raw_data`目录下, 依次运行convert_doc_to_md.py, text_chunker.py, merge_json_files.py后, 即可得到result.json文件
 
-### 使用Docker部署（推荐）
+### Docker容器化部署运行
+**标准部署** 
+- 使用docker运行
+`docker build -t document-processor .` 
+- 或者使用docker-compose启动服务 
+`docker-compose up -d`
 
+**启动服务**:
+- docker: 
+`docker run -d -p 5000:5000 document-processor`
+- docker-compose:
+`docker-compose up -d`
+
+### 本地部署运行
 ```bash
-# 克隆项目代码
-git clone <repository-url>
-cd document-processor
-
-# 创建必要目录
-mkdir -p uploads processed temp
-
-# 使用一键部署脚本
-chmod +x docker_deploy.sh
-./docker_deploy.sh
-```
-
-### 直接运行api服务
-
-```bash
-# 安装依赖
+# 1. 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# 或
+venv\Scripts\activate     # Windows
+# 或
+conda activate myenv
+# 2. 安装开发依赖
 pip install -r requirements.txt
 pip install markitdown[docx,pdf]
 
-# 创建必要目录
-mkdir -p uploads processed temp
-
-# 启动服务
+# 3. 运行开发服务器
 python app.py
+# 或
+flask run
 ```
 
-## 安装部署
-
-### Docker容器化部署
-
-项目支持多种Docker部署方式：
-
-1. **标准部署** - 使用默认配置
-2. **国内网络优化部署** - 针对中国网络环境优化
-3. **简化版部署** - 移除复杂配置，提高构建成功率
-4. **生产环境部署** - 包含资源限制和性能优化
-
-
-### 直接运行
-
-```bash
-# 1. 安装Python依赖
-pip install -r requirements.txt
-
-# 2. 安装文档处理额外依赖
-pip install markitdown[docx,pdf]
-
-# 3. 创建必要目录
-mkdir -p uploads processed temp
-
-# 4. 启动服务
-python app.py
-```
 
 ## API接口
 
@@ -201,86 +179,3 @@ curl -o result.json "http://localhost:5000/api/v1/download/{task_id}/{url_encode
 - `processed/`：处理结果目录
 - `temp/`：临时文件目录
 - `raw_data/`：原始文档目录（示例）
-
-## 目录结构
-
-```
-document-processor/
-├── app.py                 # 主服务应用
-├── convert_doc_to_md.py   # 文档转换模块
-├── text_chunker.py        # 文本分块模块
-├── merge_json_files.py    # 数据合并模块
-├── requirements.txt       # Python依赖
-├── Dockerfile            # Docker配置
-├── docker-compose.yml    # Docker编排配置
-├── docker_deploy.sh      # 部署脚本
-├── conversion_config.json # 转换配置
-├── chunk_config.json     # 分块配置
-├── merge_config.json     # 合并配置
-├── raw_data/             # 原始文档目录
-├── uploads/              # 上传文件目录
-├── processed/            # 处理结果目录
-├── temp/                 # 临时文件目录
-└── README.md             # 项目说明文档
-```
-
-## 开发指南
-
-### 本地开发
-
-```bash
-# 1. 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或
-venv\Scripts\activate     # Windows
-
-# 2. 安装开发依赖
-pip install -r requirements.txt
-pip install markitdown[docx,pdf]
-
-# 3. 运行开发服务器
-python app.py
-```
-
-### 测试
-
-```
-# 运行单元测试
-python -m pytest tests/
-
-# 运行API测试
-python test/test_api.py
-```
-
-## 故障排除
-
-### 常见问题
-
-1. **Docker构建失败**：
-   - 检查网络连接
-   - 配置Docker镜像加速器
-   - 使用简化版部署配置
-
-2. **依赖安装失败**：
-   ```bash
-   pip install --upgrade pip
-   pip install markitdown[docx,pdf]
-   ```
-
-3. **服务无法启动**：
-   - 检查端口是否被占用
-   - 确认配置文件是否存在
-   - 查看服务日志
-
-### 查看日志
-
-```bash
-# Docker部署
-docker compose logs -f
-
-# 直接运行
-tail -f app.log
-```
-
-

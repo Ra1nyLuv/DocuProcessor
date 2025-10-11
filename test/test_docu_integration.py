@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-使用实际数据测试API服务的示例脚本
-从raw_data目录中选择文件进行测试
+文档处理服务集成测试脚本
+使用File/temp/test_user下的实际文档进行测试
 """
 
 import requests
@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 # 服务配置
 BASE_URL = "http://localhost:5000"
-RAW_DATA_DIR = "../raw_data"  # 相对于test目录的路径
+TEST_DATA_DIR = "../../File/temp/test_user/test_knowledge_base"  # 相对于test目录的路径
 
 def check_service_health():
     """检查服务健康状态"""
@@ -34,25 +34,25 @@ def check_service_health():
         print(f"✗ 检查服务时发生错误: {str(e)}")
         return False
 
-def get_sample_files():
-    """获取示例文件列表"""
-    raw_data_path = Path(RAW_DATA_DIR)
-    if not raw_data_path.exists():
-        print(f"✗ raw_data目录不存在: {RAW_DATA_DIR}")
+def get_test_files():
+    """获取测试文件列表"""
+    test_data_path = Path(TEST_DATA_DIR)
+    if not test_data_path.exists():
+        print(f"✗ 测试数据目录不存在: {TEST_DATA_DIR}")
         return []
     
     # 支持的文件类型
     supported_extensions = {'.txt', '.pdf', '.docx', '.doc', '.html', '.htm', '.pptx', '.xlsx'}
     
-    sample_files = []
-    for file_path in raw_data_path.iterdir():
+    test_files = []
+    for file_path in test_data_path.iterdir():
         if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
-            sample_files.append(file_path)
-            # 只选择前3个文件作为示例
-            if len(sample_files) >= 3:
+            test_files.append(file_path)
+            # 只选择前3个文件作为测试
+            if len(test_files) >= 3:
                 break
     
-    return sample_files
+    return test_files
 
 def test_single_document(file_path):
     """测试单个文档处理"""
@@ -127,7 +127,6 @@ def download_result(task_id, filename, save_path):
     
     try:
         # URL编码文件名（处理路径分隔符和中文字符）
-        from urllib.parse import quote
         encoded_filename = quote(filename, safe='')
         download_url = f"{BASE_URL}/api/v1/download/{task_id}/{encoded_filename}"
         
@@ -174,32 +173,32 @@ def show_result_preview(filename):
 
 def main():
     """主函数"""
-    print("文档处理服务实际数据测试")
+    print("文档处理服务集成测试")
     print("=" * 50)
     
     # 1. 检查服务健康状态
     if not check_service_health():
         print("\n请先启动文档处理服务再运行此测试。")
         print("启动命令:")
-        print("  cd .. && python app.py")
+        print("  cd .. && docker-compose up -d")
         return
     
-    # 2. 获取示例文件
-    sample_files = get_sample_files()
-    if not sample_files:
-        print("✗ 未找到可用的示例文件")
+    # 2. 获取测试文件
+    test_files = get_test_files()
+    if not test_files:
+        print("✗ 未找到可用的测试文件")
         return
     
-    print(f"\n找到 {len(sample_files)} 个示例文件:")
-    for i, file_path in enumerate(sample_files):
+    print(f"\n找到 {len(test_files)} 个测试文件:")
+    for i, file_path in enumerate(test_files):
         print(f"  {i+1}. {file_path.name} ({file_path.stat().st_size} bytes)")
     
     # 3. 测试单个文档处理
-    single_result = test_single_document(sample_files[0])
+    single_result = test_single_document(test_files[0])
     
     if single_result:
         # 4. 下载单个文档处理结果
-        download_path = f"test_results/single_{sample_files[0].stem}_result.json"
+        download_path = f"test_results/integration_single_{test_files[0].stem}_result.json"
         downloaded_file = download_result(
             single_result['task_id'], 
             single_result['result_file'], 
@@ -211,18 +210,18 @@ def main():
             show_result_preview(downloaded_file)
     
     # 6. 测试批量文档处理
-    batch_result = test_batch_documents(sample_files)
+    batch_result = test_batch_documents(test_files)
     
     if batch_result:
         # 7. 下载批量处理结果
         print(f"\n=== 下载批量处理结果 ===")
-        batch_dir = Path("test_results/batch_results")
+        batch_dir = Path("test_results/integration_batch_results")
         batch_dir.mkdir(parents=True, exist_ok=True)
         
         for i, (result_file, download_url) in enumerate(
             zip(batch_result['result_files'], batch_result['download_urls'])
         ):
-            download_path = batch_dir / f"batch_result_{i+1}.json"
+            download_path = batch_dir / f"integration_batch_result_{i+1}.json"
             download_result(
                 batch_result['task_id'],
                 result_file,
@@ -230,7 +229,7 @@ def main():
             )
     
     print("\n" + "=" * 50)
-    print("实际数据API测试完成！")
+    print("文档处理服务集成测试完成！")
     print("测试结果已保存在 test/test_results/ 目录下")
 
 if __name__ == "__main__":
