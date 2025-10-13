@@ -169,7 +169,8 @@ curl -o result.json "http://localhost:5000/api/v1/download/{task_id}/{url_encode
 - `FLASK_APP`：Flask应用入口文件（默认：app.py）
 - `FLASK_ENV`：运行环境（默认：production）
 
-### 配置文件
+###
+l 配置文件
 - [conversion_config.json](file:///home/lynn/projects/filesfromWork/new_project/readFile/demo/conversion_config.json)：文档转换配置
 - [chunk_config.json](file:///home/lynn/projects/filesfromWork/new_project/readFile/demo/chunk_config.json)：文本分块配置
 - [merge_config.json](file:///home/lynn/projects/filesfromWork/new_project/readFile/demo/merge_config.json)：数据合并配置

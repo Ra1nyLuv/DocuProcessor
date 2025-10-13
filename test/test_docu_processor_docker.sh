@@ -59,7 +59,7 @@ check_docker_service() {
 # 检查docker-compose命令
 check_docker_compose() {
     print_info "检查docker-compose命令..."
-    # 检查docker compose（不带连字符）命令，优先使用（根据经验教训）
+    # 检查docker compose（不带连字符）命令，优先使用
     if command -v docker &> /dev/null && docker compose version &> /dev/null; then
         print_success "docker compose命令可用"
         echo "使用命令: docker compose"
@@ -127,7 +127,7 @@ wait_for_service() {
 
 # 检查测试文件
 check_test_files() {
-    local test_dir="../../File/temp/test_user/test_knowledge_base"
+    local test_dir="/home/lynn/projects/filesfromWork/new_project/File/temp/test_user/test_knowledge_base"
     print_info "检查测试文件目录: $test_dir"
     
     if [ ! -d "$test_dir" ]; then
@@ -139,7 +139,7 @@ check_test_files() {
     local supported_files=()
     while IFS= read -r -d '' file; do
         supported_files+=("$file")
-    done < <(find "$test_dir" -type f \( -name "*.txt" -o -name "*.pdf" -o -name "*.docx" -o -name "*.doc" -o -name "*.html" -o -name "*.htm" -o -name "*.pptx" -o -name "*.xlsx" \) -print0 2>/dev/null | head -n 3)
+    done < <(find "$test_dir" -type f \( -name "*.txt" -o -name "*.pdf" -o -name "*.docx" -o -name "*.doc" -o -name "*.html" -o -name "*.htm" -o -name "*.pptx" -o -name "*.xlsx" \) -print0 2>/dev/null)
     
     if [ ${#supported_files[@]} -eq 0 ]; then
         print_error "未找到支持的测试文件"
@@ -163,13 +163,12 @@ test_single_document() {
     
     print_info "测试单文档处理: $file_name"
     
-    # 复制文件到uploads目录
-    cp "$test_file" "../uploads/"
-    
-    # 发送处理请求
+    # 发送处理请求（直接从原始位置读取文件）
     local response
     response=$(curl -s -w "%{http_code}" \
-        -F "file=@../uploads/$file_name" \
+        -F "file=@$test_file" \
+        -F "user_id=test_user" \
+        -F "kb_name=test_knowledge_base" \
         http://localhost:5000/api/v1/process-document)
     
     local http_code="${response: -3}"
@@ -205,12 +204,9 @@ test_batch_documents() {
     print_info "测试批量文档处理 (${#TEST_FILES[@]}个文件)"
     
     # 准备文件参数
-    local curl_params=()
+    local curl_params=("-F" "user_id=test_user" "-F" "kb_name=test_knowledge_base")
     for file in "${TEST_FILES[@]}"; do
-        local file_name=$(basename "$file")
-        # 复制文件到uploads目录
-        cp "$file" "../uploads/"
-        curl_params+=("-F" "files=@../uploads/$file_name")
+        curl_params+=("-F" "files=@$file")
     done
     
     # 发送批量处理请求
@@ -261,18 +257,18 @@ test_download_result() {
     
     local response
     response=$(curl -s -w "%{http_code}" \
-        -o "test_results/docker_downloaded_result.json" \
+        -o "/tmp/docker_downloaded_result.json" \
         "http://localhost:5000/api/v1/download/$task_id/$encoded_filename")
     
     local http_code="${response: -3}"
     
     if [ "$http_code" = "200" ]; then
         print_success "结果下载成功"
-        print_info "结果文件已保存为 test_results/docker_downloaded_result.json"
+        print_info "结果文件已保存为 /tmp/docker_downloaded_result.json"
         
         # 显示结果文件大小
         local file_size
-        file_size=$(stat -c%s "test_results/docker_downloaded_result.json" 2>/dev/null || stat -f%z "test_results/docker_downloaded_result.json" 2>/dev/null)
+        file_size=$(stat -c%s "/tmp/docker_downloaded_result.json" 2>/dev/null || stat -f%z "/tmp/docker_downloaded_result.json" 2>/dev/null)
         print_info "文件大小: $file_size 字节"
         return 0
     else
@@ -295,24 +291,6 @@ stop_service() {
     fi
 }
 
-# 显示测试结果
-show_test_results() {
-    print_info "测试结果预览:"
-    if [ -d "test_results" ]; then
-        echo "测试结果目录结构:"
-        find test_results/ -type f | head -10
-        echo ""
-        
-        # 显示单个结果文件的内容预览
-        if [ -f "test_results/docker_downloaded_result.json" ]; then
-            echo "结果文件预览 (test_results/docker_downloaded_result.json):"
-            head -20 "test_results/docker_downloaded_result.json"
-        fi
-    else
-        print_warning "未找到测试结果目录"
-    fi
-}
-
 # 清理临时文件
 cleanup() {
     print_info "清理临时文件..."
@@ -327,14 +305,14 @@ cleanup() {
     # 清理临时结果文件
     rm -f .test_result_docker
     
+    # 删除临时下载的文件
+    rm -f /tmp/docker_downloaded_result.json
+    
     print_success "临时文件清理完成"
 }
 
 # 主程序
 main() {
-    # 创建测试结果目录
-    mkdir -p test_results
-    
     # 检查依赖
     if ! check_docker; then
         exit 1
@@ -394,8 +372,8 @@ main() {
     
     echo ""
     
-    # 显示测试结果
-    show_test_results
+    # 显示测试结果（修改为显示处理状态）
+    print_info "测试完成，处理结果已保存在processed目录中"
     
     echo ""
     
@@ -407,10 +385,10 @@ main() {
     # 停止服务
     if stop_service; then
         print_success "Docker容器化部署测试完成！"
-        echo "测试结果已保存在 test/test_results/ 目录下"
+        echo "处理结果已保存在 processed 目录下"
     else
         print_error "Docker容器化部署测试完成，但服务停止失败！"
-        echo "测试结果已保存在 test/test_results/ 目录下"
+        echo "处理结果已保存在 processed 目录下"
     fi
 }
 
