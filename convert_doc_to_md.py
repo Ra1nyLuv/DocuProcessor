@@ -71,7 +71,8 @@ def load_conversion_config(config_file: str = "conversion_config.json") -> dict:
 
 def is_supported_file(filepath: str) -> bool:
     """检查文件是否为支持的格式"""
-    supported_extensions = ['.docx', '.pdf', '.txt', '.html', '.htm', '.pptx', '.xlsx']
+    # 添加.md到支持的格式列表中
+    supported_extensions = ['.docx', '.pdf', '.txt', '.html', '.htm', '.pptx', '.xlsx', '.md']
     return any(filepath.lower().endswith(ext) for ext in supported_extensions)
 
 def get_file_extension(filepath: str) -> str:
@@ -82,6 +83,7 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
     """
     将支持的文件格式转换为同名的 .md 文件
     修改文件生成路径结构为: converted_data/<文件名>/<文件名>.md 和 converted_data/<文件名>/images_index.json
+    对于.md文件，直接复制到目标位置而不进行转换
     
     Args:
         input_path (str): 输入文件路径
@@ -99,7 +101,7 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
     # 检查文件格式是否支持
     if not is_supported_file(input_path):
         print(f"错误: 文件 {input_path} 格式不支持")
-        print("支持的格式包括: .docx, .pdf, .txt, .html, .htm, .pptx, .xlsx")
+        print("支持的格式包括: .docx, .pdf, .txt, .html, .htm, .pptx, .xlsx, .md")
         return False
     
     # 获取文件名（不含扩展名）
@@ -114,66 +116,82 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
     md_filename = base_filename + '.md'
     md_path = os.path.join(file_output_dir, md_filename)
     
-    try:
-        # 创建 MarkItDown 实例
-        md = MarkItDown()
-        
-        # 转换文件
-        result = md.convert(input_path)
-        
-        # 将结果写入 .md 文件
-        with open(md_path, 'w', encoding='utf-8') as f:
-            f.write(result.text_content)
-        
-        # 处理图片索引
-        image_index = {}
-        # 首先尝试从result.images获取图片信息
-        if hasattr(result, 'images') and result.images:
-            print(f"  从result.images检测到 {len(result.images)} 张图片")
-            for i, image in enumerate(result.images):
-                # 生成图片文件名
-                image_filename = f"{base_filename}_image_{i+1:03d}.png"
-                
-                # 生成base64编码
-                image_base64 = base64.b64encode(image.data).decode('utf-8')
-                
-                # 记录图片索引信息（只保存base64编码，不保存原始图片文件）
-                image_index[image_filename] = {
-                    "image_id": i+1,
-                    "base64": image_base64,
-                    "size": len(image.data)
-                }
-        else:
-            print("  未从result.images检测到图片，尝试从Markdown内容中提取")
-            # 如果没有从result.images获取到图片信息，则从Markdown内容中提取base64图片
-            image_index, _ = extract_images_from_markdown(result.text_content, base_filename)
+    # 检查是否为.md文件，如果是则直接复制，否则进行转换
+    if input_path.lower().endswith('.md'):
+        print(f"检测到.md文件，直接复制到目标位置: {md_path}")
+        try:
+            # 直接复制.md文件
+            import shutil
+            shutil.copy2(input_path, md_path)
+            print(f"成功将 {input_path} 复制到 {md_path}")
             
-            # 如果仍然没有提取到图片，尝试直接从docx或pdf文件中提取
-            if not image_index:
-                if input_path.lower().endswith('.docx'):
-                    print("  未从Markdown内容中检测到图片，尝试直接从docx文件中提取")
-                    image_index, _ = extract_images_from_docx(input_path, base_filename)
-                elif input_path.lower().endswith('.pdf') and PDF_SUPPORTED:
-                    print("  未从Markdown内容中检测到图片，尝试直接从pdf文件中提取")
-                    image_index, _ = extract_images_from_pdf(input_path, base_filename)
-        
-        # 保存图片索引文件为 images_index.json（而不是原来的 <文件名>_image_index.json）
-        if image_index:
-            # 生成图片索引文件路径: converted_data/<文件名>/images_index.json
-            image_index_path = os.path.join(file_output_dir, "images_index.json")
-            with open(image_index_path, 'w', encoding='utf-8') as f:
-                json.dump(image_index, f, ensure_ascii=False, indent=2)
-            
-            print(f"  ✓ 已保存 {len(image_index)} 张图片的base64编码及索引文件")
-        else:
+            # 对于.md文件，我们不处理图片索引，直接返回成功
             print("  未检测到图片")
-        
-        print(f"成功将 {input_path} 转换为 {md_path}")
-        return True
-        
-    except Exception as e:
-        print(f"转换过程中出现错误: {str(e)}")
-        return False
+            return True
+        except Exception as e:
+            print(f"复制.md文件过程中出现错误: {str(e)}")
+            return False
+    else:
+        try:
+            # 创建 MarkItDown 实例
+            md = MarkItDown()
+            
+            # 转换文件
+            result = md.convert(input_path)
+            
+            # 将结果写入 .md 文件
+            with open(md_path, 'w', encoding='utf-8') as f:
+                f.write(result.text_content)
+            
+            # 处理图片索引
+            image_index = {}
+            # 首先尝试从result.images获取图片信息
+            if hasattr(result, 'images') and result.images:
+                print(f"  从result.images检测到 {len(result.images)} 张图片")
+                for i, image in enumerate(result.images):
+                    # 生成图片文件名
+                    image_filename = f"{base_filename}_image_{i+1:03d}.png"
+                    
+                    # 生成base64编码
+                    image_base64 = base64.b64encode(image.data).decode('utf-8')
+                    
+                    # 记录图片索引信息（只保存base64编码，不保存原始图片文件）
+                    image_index[image_filename] = {
+                        "image_id": i+1,
+                        "base64": image_base64,
+                        "size": len(image.data)
+                    }
+            else:
+                print("  未从result.images检测到图片，尝试从Markdown内容中提取")
+                # 如果没有从result.images获取到图片信息，则从Markdown内容中提取base64图片
+                image_index, _ = extract_images_from_markdown(result.text_content, base_filename)
+                
+                # 如果仍然没有提取到图片，尝试直接从docx或pdf文件中提取
+                if not image_index:
+                    if input_path.lower().endswith('.docx'):
+                        print("  未从Markdown内容中检测到图片，尝试直接从docx文件中提取")
+                        image_index, _ = extract_images_from_docx(input_path, base_filename)
+                    elif input_path.lower().endswith('.pdf') and PDF_SUPPORTED:
+                        print("  未从Markdown内容中检测到图片，尝试直接从pdf文件中提取")
+                        image_index, _ = extract_images_from_pdf(input_path, base_filename)
+            
+            # 保存图片索引文件为 images_index.json（而不是原来的 <文件名>_image_index.json）
+            if image_index:
+                # 生成图片索引文件路径: converted_data/<文件名>/images_index.json
+                image_index_path = os.path.join(file_output_dir, "images_index.json")
+                with open(image_index_path, 'w', encoding='utf-8') as f:
+                    json.dump(image_index, f, ensure_ascii=False, indent=2)
+                
+                print(f"  ✓ 已保存 {len(image_index)} 张图片的base64编码及索引文件")
+            else:
+                print("  未检测到图片")
+            
+            print(f"成功将 {input_path} 转换为 {md_path}")
+            return True
+            
+        except Exception as e:
+            print(f"转换过程中出现错误: {str(e)}")
+            return False
 
 def extract_images_from_markdown(markdown_content: str, base_filename: str) -> Tuple[Dict, Dict]:
     """

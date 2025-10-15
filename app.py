@@ -50,7 +50,7 @@ for folder in [UPLOAD_FOLDER, PROCESSED_FOLDER, TEMP_FOLDER]:
 
 # 支持的文件类型
 ALLOWED_EXTENSIONS = {
-    'txt', 'pdf', 'docx', 'doc', 'html', 'htm', 'pptx', 'xlsx'
+    'txt', 'pdf', 'docx', 'doc', 'html', 'htm', 'pptx', 'xlsx', 'md'
 }
 
 def allowed_file(filename: str) -> bool:
