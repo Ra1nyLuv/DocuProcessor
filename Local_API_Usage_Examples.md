@@ -21,12 +21,6 @@ mkdir -p uploads processed temp
 
 # 启动服务
 docker-compose up -d
-
-# 或使用国内网络优化配置
-docker-compose -f docker-compose.cn.yml up -d
-
-# 或使用简化版配置
-docker-compose -f docker-compose.simple.yml up -d
 ```
 
 ### 直接运行方式启动
@@ -304,9 +298,5 @@ if __name__ == "__main__":
 - 中等文件（1-10MB）：可能需要几十秒
 - 大文件（>10MB）：可能需要几分钟
 
-### 5. 结果文件格式
-- 输出格式：JSON
-- 包含原始文本内容和结构化信息
-- 文件存储结构：每个文档在[result/](file:///home/lynn/projects/filesfromWork/new_project/readFile/demo/result/)目录下有独立文件夹，文件夹内包含[result.json](file:///home/lynn/projects/filesfromWork/new_project/readFile/demo/result.json)文件
 
-通过以上使用示例，您可以快速上手文档处理服务的API调用。在实际使用中，请根据具体需求调整参数和处理逻辑.
+在实际使用中，请根据具体需求调整参数和处理逻辑.

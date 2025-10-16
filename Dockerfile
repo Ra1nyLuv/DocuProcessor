@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FLASK_APP=app.py \
     FLASK_ENV=production
 
-# === 关键：正确配置清华 APT 源（无多余空格！）===
+# 配置清华 APT 源
 RUN set -eux; \
     CODENAME=$(grep -oP 'VERSION_CODENAME=\K\w+' /etc/os-release); \
     echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ $CODENAME main" > /etc/apt/sources.list; \
@@ -24,7 +24,7 @@ RUN set -eux; \
 # 复制依赖文件（利于缓存）
 COPY requirements.txt .
 
-# 安装 Python 依赖（合并为一条命令 + 使用清华 PyPI 源加速）
+# 安装 Python 依赖（使用清华 PyPI 源加速）
 RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt && \
     pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple "markitdown[docx,pdf]"
 
