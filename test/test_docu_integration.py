@@ -15,7 +15,7 @@ from urllib.parse import quote
 # 服务配置
 BASE_URL = "http://localhost:5000"
 # TEST_DATA_DIR = "../../File/temp/test_user/test_knowledge_base"  # 相对于test目录的路径
-TEST_DATA_DIR = "/home/lynn/projects/filesfromWork/new_project/File/temp/test_user/test_knowledge_base"  # 测试用的路径
+TEST_DATA_DIR = "/home/lynn/projects/filesfromWork/new_project/docuprocessor/raw_data"  # 测试用的路径
 
 def check_service_health():
     """检查服务健康状态"""
@@ -43,7 +43,7 @@ def get_test_files():
         return []
     
     # 支持的文件类型
-    supported_extensions = {'.txt', '.pdf', '.docx', '.doc', '.html', '.htm', '.pptx', '.xlsx'}
+    supported_extensions = {'.txt', '.pdf', '.docx', '.doc', '.html', '.htm', '.pptx', '.xlsx', '.md'}
     
     test_files = []
     for file_path in test_data_path.iterdir():

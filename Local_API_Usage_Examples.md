@@ -54,29 +54,29 @@ curl http://localhost:5000/health
 
 ## 单文档处理示例
 
-### 1. 处理DOCX文档
+### 1. 处理包含中文文件名的文档
 ```bash
-curl -X POST -F "file=@example.docx" http://localhost:5000/api/v1/process-document
+curl -X POST -F "file=@大数据获取与预处理项目实践任务书.md" http://localhost:5000/api/v1/process-document
 ```
 
 **成功响应**：
-```
+```json
 {
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "task_id": "c6952912-6437-4cf5-874d-74811d1dfe18",
   "status": "completed",
-  "result_file": "example/result.json",
-  "download_url": "/api/v1/download/550e8400-e29b-41d4-a716-446655440000/example%2Fresult.json"
+  "result_file": "大数据获取与预处理项目实践任务书/result.json",
+  "download_url": "/api/v1/download/c6952912-6437-4cf5-874d-74811d1dfe18/大数据获取与预处理项目实践任务书/result.json"
 }
 ```
 
-### 2. 处理PDF文档
+### 2. 处理TXT文档
 ```bash
-curl -X POST -F "file=@document.pdf" http://localhost:5000/api/v1/process-document
+curl -X POST -F "file=@自然语言处理课设答辩稿.txt" http://localhost:5000/api/v1/process-document
 ```
 
-### 3. 处理TXT文档
+### 3. 处理DOCX文档
 ```bash
-curl -X POST -F "file=@notes.txt" http://localhost:5000/api/v1/process-document
+curl -X POST -F "file=@example.docx" http://localhost:5000/api/v1/process-document
 ```
 
 ## 批量文档处理示例
@@ -84,9 +84,9 @@ curl -X POST -F "file=@notes.txt" http://localhost:5000/api/v1/process-document
 ### 1. 批量处理多个文档
 ```bash
 curl -X POST \
-  -F "files=@doc1.docx" \
-  -F "files=@doc2.pdf" \
-  -F "files=@notes.txt" \
+  -F "files=@大数据获取与预处理项目实践任务书.md" \
+  -F "files=@自然语言处理课设答辩稿.txt" \
+  -F "files=@example.docx" \
   http://localhost:5000/api/v1/batch-process
 ```
 
@@ -95,11 +95,15 @@ curl -X POST \
 {
   "task_id": "660e8400-e29b-41d4-a716-446655440001",
   "status": "completed",
-  "result_files": ["doc1/result.json", "doc2/result.json", "notes/result.json"],
+  "result_files": [
+    "大数据获取与预处理项目实践任务书/result.json", 
+    "自然语言处理课设答辩稿/result.json", 
+    "example/result.json"
+  ],
   "download_urls": [
-    "/api/v1/download/660e8400-e29b-41d4-a716-446655440001/doc1%2Fresult.json",
-    "/api/v1/download/660e8400-e29b-41d4-a716-446655440001/doc2%2Fresult.json",
-    "/api/v1/download/660e8400-e29b-41d4-a716-446655440001/notes%2Fresult.json"
+    "/api/v1/download/660e8400-e29b-41d4-a716-446655440001/大数据获取与预处理项目实践任务书/result.json",
+    "/api/v1/download/660e8400-e29b-41d4-a716-446655440001/自然语言处理课设答辩稿/result.json",
+    "/api/v1/download/660e8400-e29b-41d4-a716-446655440001/example/result.json"
   ]
 }
 ```
@@ -108,19 +112,19 @@ curl -X POST \
 
 ### 1. 下载单个处理结果
 ```bash
-# 使用返回的download_url下载
-curl -o result.json "http://localhost:5000/api/v1/download/550e8400-e29b-41d4-a716-446655440000/example%2Fresult.json"
+# 使用返回的download_url直接下载（支持中文URL）
+curl -o result.json "http://localhost:5000/api/v1/download/c6952912-6437-4cf5-874d-74811d1dfe18/大数据获取与预处理项目实践任务书/result.json"
 ```
 
-### 2. 下载包含中文文件名的结果
+### 2. 下载批量处理结果
 ```bash
-# 对于包含中文的文件名，需要进行URL编码
-curl -o 结果文件.json "http://localhost:5000/api/v1/download/550e8400-e29b-41d4-a716-446655440000/%E7%BB%93%E6%9E%9C%E6%96%87%E4%BB%B6%2Fresult.json"
+# 直接使用包含中文的URL下载
+curl -o 大数据获取与预处理项目实践任务书_result.json "http://localhost:5000/api/v1/download/660e8400-e29b-41d4-a716-446655440001/大数据获取与预处理项目实践任务书/result.json"
 ```
 
 ### 3. 使用wget下载
 ```bash
-wget -O result.json "http://localhost:5000/api/v1/download/550e8400-e29b-41d4-a716-446655440000/example%2Fresult.json"
+wget -O result.json "http://localhost:5000/api/v1/download/c6952912-6437-4cf5-874d-74811d1dfe18/大数据获取与预处理项目实践任务书/result.json"
 ```
 
 ## 错误处理示例
@@ -167,7 +171,6 @@ curl -X POST http://localhost:5000/api/v1/process-document
 ```python
 import requests
 import json
-from urllib.parse import quote
 
 # 服务地址
 BASE_URL = "http://localhost:5000"
@@ -182,16 +185,15 @@ def process_single_document(file_path):
         result = response.json()
         print(f"任务ID: {result['task_id']}")
         print(f"结果文件: {result['result_file']}")
+        print(f"下载URL: {result['download_url']}")
         return result
     else:
         print(f"处理失败: {response.text}")
         return None
 
-def download_result(task_id, filename, save_path):
+def download_result(download_url, save_path):
     """下载处理结果"""
-    # URL编码文件名
-    encoded_filename = quote(filename)
-    response = requests.get(f"{BASE_URL}/api/v1/download/{task_id}/{encoded_filename}")
+    response = requests.get(f"{BASE_URL}{download_url}")
     
     if response.status_code == 200:
         with open(save_path, 'wb') as f:
@@ -203,17 +205,16 @@ def download_result(task_id, filename, save_path):
 # 使用示例
 if __name__ == "__main__":
     # 处理单个文档
-    result = process_single_document("test.docx")
+    result = process_single_document("大数据获取与预处理项目实践任务书.md")
     if result:
-        # 下载结果
-        download_result(result['task_id'], result['result_file'], "result.json")
+        # 直接使用返回的下载URL
+        download_result(result['download_url'], "大数据获取与预处理项目实践任务书_result.json")
 ```
 
 ### 2. 批量文档处理客户端
 ```python
 import requests
 import json
-from urllib.parse import quote
 import os
 
 # 服务地址
@@ -245,33 +246,40 @@ def process_batch_documents(file_paths):
         print(f"发生错误: {str(e)}")
         return None
 
-def download_batch_results(task_id, filenames, save_dir):
+def download_batch_results(task_id, download_urls, save_dir):
     """下载批量处理结果"""
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
-    for filename in filenames:
-        # URL编码文件名
-        encoded_filename = quote(filename)
-        response = requests.get(f"{BASE_URL}/api/v1/download/{task_id}/{encoded_filename}")
+    for i, download_url in enumerate(download_urls):
+        response = requests.get(f"{BASE_URL}{download_url}")
         
         if response.status_code == 200:
+            # 从URL中提取文件名
+            filename = download_url.split('/')[-2] + "_result.json"
             save_path = os.path.join(save_dir, filename)
             with open(save_path, 'wb') as f:
                 f.write(response.content)
             print(f"文件已保存到: {save_path}")
         else:
-            print(f"下载文件 {filename} 失败: {response.text}")
+            print(f"下载失败: {response.text}")
 
 # 使用示例
 if __name__ == "__main__":
     # 批量处理文档
-    file_paths = ["doc1.docx", "doc2.pdf", "notes.txt"]
+    file_paths = [
+        "大数据获取与预处理项目实践任务书.md", 
+        "自然语言处理课设答辩稿.txt"
+    ]
     result = process_batch_documents(file_paths)
     
     if result:
-        # 下载所有结果
-        download_batch_results(result['task_id'], result['result_files'], "batch_results")
+        # 直接使用返回的下载URL列表
+        download_batch_results(
+            result['task_id'], 
+            result['download_urls'], 
+            "batch_results"
+        )
 ```
 
 ## 实际使用经验总结
@@ -282,8 +290,9 @@ if __name__ == "__main__":
 - 如需处理更大文件，可修改app.py中的`MAX_CONTENT_LENGTH`参数
 
 ### 2. 中文文件名处理
-- 下载包含中文的文件时必须进行URL编码
-- 使用Python的`urllib.parse.quote`函数进行编码
+- 现在API支持直接使用包含中文字符的URL，无需额外编码
+- 返回的下载URL中直接显示中文字符，更加直观易读
+- 下载时可直接使用返回的URL，系统会自动处理
 
 ### 3. 支持的文件类型
 - 文本文件：txt
@@ -292,11 +301,16 @@ if __name__ == "__main__":
 - 网页文件：html, htm
 - 演示文稿：pptx
 - 电子表格：xlsx
+- Markdown文件：md
 
 ### 4. 处理时间
 - 小文件（<1MB）：通常在几秒内完成
 - 中等文件（1-10MB）：可能需要几十秒
 - 大文件（>10MB）：可能需要几分钟
 
+### 5. 最新改进
+- API返回的URL中直接显示中文字符，提高可读性
+- 下载时支持直接使用包含中文的URL
+- 简化了客户端处理逻辑，无需手动进行URL编码
 
 在实际使用中，请根据具体需求调整参数和处理逻辑.

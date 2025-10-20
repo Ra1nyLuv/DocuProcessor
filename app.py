@@ -18,6 +18,7 @@ from pathlib import Path
 from flask import Flask, request, jsonify, send_file, abort
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.routing import PathConverter
 
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,8 +36,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Flask应用配置
+class ChinesePathConverter(PathConverter):
+    """支持中文字符的路径转换器"""
+    pass
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 限制上传文件大小为50MB
+# 注册自定义路径转换器
+app.url_map.converters['chinese_path'] = ChinesePathConverter
+# 禁用JSON的Unicode转义，直接显示中文字符
+app.config['JSON_AS_ASCII'] = False
 
 # 服务配置
 BASE_DIR = Path(__file__).parent
@@ -171,15 +180,21 @@ def process_document():
         
         # 返回结果（只返回第一个文档的结果，保持接口兼容性）
         result_filename = result_filenames[0] if result_filenames else "result.json"
-        # URL编码文件路径
-        from urllib.parse import quote
-        encoded_filename = quote(result_filename, safe='')
-        return jsonify({
+        # 不再进行URL编码，直接使用原始文件名
+        response_data = {
             "task_id": task_id,
             "status": "completed",
             "result_file": result_filename,
-            "download_url": f"/api/v1/download/{task_id}/{encoded_filename}"
-        })
+            "download_url": f"/api/v1/download/{task_id}/{result_filename}"
+        }
+        # 使用json.dumps直接控制编码选项
+        import json
+        response_json = json.dumps(response_data, ensure_ascii=False)
+        return app.response_class(
+            response=response_json,
+            status=200,
+            mimetype='application/json'
+        )
         
     except Exception as e:
         logger.error(f"任务 {task_id} 处理失败: {str(e)}")
@@ -270,39 +285,40 @@ def batch_process():
         cleanup_temp_files(task_id)
         
         # 返回结果
-        # URL编码所有文件路径
-        from urllib.parse import quote
-        download_urls = [f"/api/v1/download/{task_id}/{quote(filename, safe='')}" for filename in result_files]
-        return jsonify({
+        # 不再对文件路径进行URL编码，直接使用原始路径
+        download_urls = [f"/api/v1/download/{task_id}/{filename}" for filename in result_files]
+        response_data = {
             "task_id": task_id,
             "status": "completed",
             "result_files": result_files,
             "download_urls": download_urls
-        })
+        }
+        # 使用json.dumps直接控制编码选项
+        import json
+        response_json = json.dumps(response_data, ensure_ascii=False)
+        return app.response_class(
+            response=response_json,
+            status=200,
+            mimetype='application/json'
+        )
         
     except Exception as e:
         logger.error(f"批量任务 {task_id} 处理失败: {str(e)}")
         cleanup_temp_files(task_id)
         return jsonify({"error": f"批量处理失败: {str(e)}"}), 500
 
-@app.route('/api/v1/download/<task_id>/<path:filename>', methods=['GET'])
+@app.route('/api/v1/download/<task_id>/<chinese_path:filename>', methods=['GET'])
 def download_result(task_id: str, filename: str):
     """下载处理结果文件"""
     try:
-        # URL解码文件名（处理中文字符）
-        from urllib.parse import unquote
-        decoded_filename = unquote(filename)
+        # 直接使用传入的文件名，不再进行URL解码
+        decoded_filename = filename
         
         # 处理新的目录结构（filename可能包含路径分隔符）
         result_path = PROCESSED_FOLDER / task_id / decoded_filename
         if not result_path.exists():
-            # 如果直接路径不存在，尝试处理可能的URL编码问题
-            # 将%2F转换回/
-            decoded_filename = decoded_filename.replace('%2F', '/')
-            result_path = PROCESSED_FOLDER / task_id / decoded_filename
-            if not result_path.exists():
-                logger.error(f"文件未找到: {result_path}")
-                abort(404)
+            logger.error(f"文件未找到: {result_path}")
+            abort(404)
         
         # 提取实际的文件名用于下载
         actual_filename = os.path.basename(decoded_filename)
