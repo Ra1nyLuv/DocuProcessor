@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 # 尝试导入PDF处理库
 try:
-    import fitz  # PyMuPDF
+    import pymupdf  # PyMuPDF
     PDF_SUPPORTED = True
 except ImportError:
     PDF_SUPPORTED = False
@@ -145,35 +145,51 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
             
             # 处理图片索引
             image_index = {}
+            image_files_saved = []  # 用于记录保存的图片文件路径
+            
             # 首先尝试从result.images获取图片信息
-            if hasattr(result, 'images') and result.images:
-                print(f"  从result.images检测到 {len(result.images)} 张图片")
-                for i, image in enumerate(result.images):
-                    # 生成图片文件名
-                    image_filename = f"{base_filename}_image_{i+1:03d}.png"
-                    
-                    # 生成base64编码
-                    image_base64 = base64.b64encode(image.data).decode('utf-8')
-                    
-                    # 记录图片索引信息（只保存base64编码，不保存原始图片文件）
-                    image_index[image_filename] = {
-                        "image_id": i+1,
-                        "base64": image_base64,
-                        "size": len(image.data)
-                    }
-            else:
-                print("  未从result.images检测到图片，尝试从Markdown内容中提取")
+            # 注意：markitdown库的DocumentConverterResult类可能没有images属性
+            # 所以我们使用try-except来安全地访问
+            try:
+                # 安全地检查images属性是否存在
+                images_attr = getattr(result, 'images', None)
+                if images_attr is not None:
+                    print(f"  从result.images检测到 {len(images_attr)} 张图片")
+                    for i, image in enumerate(images_attr):
+                        # 生成图片文件名，添加编号前缀
+                        image_filename = f"{i+1}_{base_filename}_image.png"
+                        image_filepath = os.path.join(file_output_dir, image_filename)
+                        
+                        # 保存原始图片文件
+                        with open(image_filepath, 'wb') as f:
+                            f.write(image.data)
+                        image_files_saved.append(image_filename)
+                        
+                        # 生成base64编码
+                        image_base64 = base64.b64encode(image.data).decode('utf-8')
+                        
+                        # 记录图片索引信息
+                        image_index[image_filename] = {
+                            "image_id": i+1,
+                            "base64": image_base64,
+                            "size": len(image.data),
+                            "filepath": image_filename  # 添加文件路径信息
+                        }
+                else:
+                    raise AttributeError("result.images not available")
+            except (AttributeError, TypeError) as e:
+                print(f"  未从result.images检测到图片 ({str(e)})，尝试从Markdown内容中提取")
                 # 如果没有从result.images获取到图片信息，则从Markdown内容中提取base64图片
-                image_index, _ = extract_images_from_markdown(result.text_content, base_filename)
+                image_index, image_files_saved = extract_images_from_markdown(result.text_content, base_filename, file_output_dir)
                 
                 # 如果仍然没有提取到图片，尝试直接从docx或pdf文件中提取
                 if not image_index:
                     if input_path.lower().endswith('.docx'):
                         print("  未从Markdown内容中检测到图片，尝试直接从docx文件中提取")
-                        image_index, _ = extract_images_from_docx(input_path, base_filename)
+                        image_index, image_files_saved = extract_images_from_docx(input_path, base_filename, file_output_dir)
                     elif input_path.lower().endswith('.pdf') and PDF_SUPPORTED:
                         print("  未从Markdown内容中检测到图片，尝试直接从pdf文件中提取")
-                        image_index, _ = extract_images_from_pdf(input_path, base_filename)
+                        image_index, image_files_saved = extract_images_from_pdf(input_path, base_filename, file_output_dir)
             
             # 保存图片索引文件为 images_index.json（而不是原来的 <文件名>_image_index.json）
             if image_index:
@@ -183,6 +199,8 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
                     json.dump(image_index, f, ensure_ascii=False, indent=2)
                 
                 print(f"  ✓ 已保存 {len(image_index)} 张图片的base64编码及索引文件")
+                if image_files_saved:
+                    print(f"  ✓ 已保存 {len(image_files_saved)} 张原始图片文件: {', '.join(image_files_saved)}")
             else:
                 print("  未检测到图片")
             
@@ -193,18 +211,20 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
             print(f"转换过程中出现错误: {str(e)}")
             return False
 
-def extract_images_from_markdown(markdown_content: str, base_filename: str) -> Tuple[Dict, Dict]:
+def extract_images_from_markdown(markdown_content: str, base_filename: str, output_dir: str) -> Tuple[Dict, List]:
     """
-    从Markdown内容中提取base64编码的图片（不保存原始图片文件）
+    从Markdown内容中提取base64编码的图片并保存原始图片文件
     
     Args:
         markdown_content (str): Markdown内容
         base_filename (str): 基础文件名
+        output_dir (str): 输出目录路径
         
     Returns:
-        Tuple[Dict, Dict]: 图片索引信息和pics索引信息
+        Tuple[Dict, List]: 图片索引信息和保存的图片文件名列表
     """
     image_index = {}
+    image_files_saved = []
     # 匹配Markdown中的base64图片（更宽松的匹配）
     pattern = r'data:image/[^;]+;base64,([a-zA-Z0-9+/=]+)'
     matches = re.findall(pattern, markdown_content)
@@ -219,32 +239,41 @@ def extract_images_from_markdown(markdown_content: str, base_filename: str) -> T
             # 解码base64数据
             image_data = base64.b64decode(base64_data)
             
-            # 生成图片文件名
-            image_filename = f"{base_filename}_image_{i+1:03d}.png"
+            # 生成图片文件名，添加编号前缀
+            image_filename = f"{i+1}_{base_filename}_image.png"
+            image_filepath = os.path.join(output_dir, image_filename)
             
-            # 记录图片索引信息（只保存base64编码，不保存原始图片文件）
+            # 保存原始图片文件
+            with open(image_filepath, 'wb') as f:
+                f.write(image_data)
+            image_files_saved.append(image_filename)
+            
+            # 记录图片索引信息
             image_index[image_filename] = {
                 "image_id": i+1,
                 "base64": base64_data,
-                "size": len(image_data)
+                "size": len(image_data),
+                "filepath": image_filename  # 添加文件路径信息
             }
         except Exception as e:
             print(f"  警告: 提取第{i+1}张图片时出错: {str(e)}")
     
-    return image_index, {}
+    return image_index, image_files_saved
 
-def extract_images_from_docx(docx_path: str, base_filename: str) -> Tuple[Dict, Dict]:
+def extract_images_from_docx(docx_path: str, base_filename: str, output_dir: str) -> Tuple[Dict, List]:
     """
-    从docx文件中直接提取图片（不保存原始图片文件）
+    从docx文件中直接提取图片并保存原始图片文件
     
     Args:
         docx_path (str): docx文件路径
         base_filename (str): 基础文件名
+        output_dir (str): 输出目录路径
         
     Returns:
-        Tuple[Dict, Dict]: 图片索引信息和pics索引信息
+        Tuple[Dict, List]: 图片索引信息和保存的图片文件名列表
     """
     image_index = {}
+    image_files_saved = []
     
     try:
         # 打开docx文件（docx本质上是一个zip文件）
@@ -264,43 +293,58 @@ def extract_images_from_docx(docx_path: str, base_filename: str) -> Tuple[Dict, 
                 if not ext:
                     ext = '.png'  # 默认使用png格式
                 
-                # 生成图片文件名
-                image_filename = f"{base_filename}_image_{i+1:03d}{ext}"
+                # 生成图片文件名，添加编号前缀
+                image_filename = f"{i+1}_{base_filename}_image{ext}"
+                image_filepath = os.path.join(output_dir, image_filename)
+                
+                # 保存原始图片文件
+                with open(image_filepath, 'wb') as f:
+                    f.write(image_data)
+                image_files_saved.append(image_filename)
                 
                 # 生成base64编码
                 image_base64 = base64.b64encode(image_data).decode('utf-8')
                 
-                # 记录图片索引信息（只保存base64编码，不保存原始图片文件）
+                # 记录图片索引信息
                 image_index[image_filename] = {
                     "image_id": i+1,
                     "base64": image_base64,
-                    "size": len(image_data)
+                    "size": len(image_data),
+                    "filepath": image_filename  # 添加文件路径信息
                 }
     except Exception as e:
         print(f"  警告: 从docx文件提取图片时出错: {str(e)}")
     
-    return image_index, {}
+    return image_index, image_files_saved
 
-def extract_images_from_pdf(pdf_path: str, base_filename: str) -> Tuple[Dict, Dict]:
+def extract_images_from_pdf(pdf_path: str, base_filename: str, output_dir: str) -> Tuple[Dict, List]:
     """
-    从PDF文件中直接提取图片（不保存原始图片文件）
+    从PDF文件中直接提取图片并保存原始图片文件
     
     Args:
         pdf_path (str): PDF文件路径
         base_filename (str): 基础文件名
+        output_dir (str): 输出目录路径
         
     Returns:
-        Tuple[Dict, Dict]: 图片索引信息和pics索引信息
+        Tuple[Dict, List]: 图片索引信息和保存的图片文件名列表
     """
     image_index = {}
+    image_files_saved = []
     
     if not PDF_SUPPORTED:
         print("  警告: 未安装PyMuPDF库，无法从PDF文件中提取图片")
-        return image_index, {}
+        return image_index, image_files_saved
+    
+    # 只有在PDF支持可用时才处理PDF文件
+    if not PDF_SUPPORTED:
+        print("  警告: 未安装PyMuPDF库，无法从PDF文件中提取图片")
+        return image_index, image_files_saved
     
     try:
         # 打开PDF文件
-        doc = fitz.open(pdf_path)
+        import pymupdf  # PyMuPDF
+        doc = pymupdf.open(pdf_path)
         
         image_count = 0
         
@@ -312,27 +356,34 @@ def extract_images_from_pdf(pdf_path: str, base_filename: str) -> Tuple[Dict, Di
             for image_index_in_page, img in enumerate(image_list, start=1):
                 # 提取图片数据
                 xref = img[0]
-                pix = fitz.Pixmap(doc, xref)
+                pix = pymupdf.Pixmap(doc, xref)
                 
-                # 生成图片文件名
+                # 生成图片文件名，添加编号前缀
                 image_count += 1
-                image_filename = f"{base_filename}_image_{image_count:03d}.png"
+                image_filename = f"{image_count:03d}_{base_filename}_image.png"
+                image_filepath = os.path.join(output_dir, image_filename)
                 
                 # 获取图片数据
                 if pix.n < 5:  # 如果不是CMYK格式，直接获取数据
                     image_data = pix.tobytes()
                 else:  # 如果是CMYK格式，转换为RGB再获取数据
-                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                    pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                     image_data = pix.tobytes()
+                
+                # 保存原始图片文件
+                with open(image_filepath, 'wb') as f:
+                    f.write(image_data)
+                image_files_saved.append(image_filename)
                 
                 # 生成base64编码
                 image_base64 = base64.b64encode(image_data).decode('utf-8')
                 
-                # 记录图片索引信息（只保存base64编码，不保存原始图片文件）
+                # 记录图片索引信息
                 image_index[image_filename] = {
                     "image_id": image_count,
                     "base64": image_base64,
-                    "size": len(image_data)
+                    "size": len(image_data),
+                    "filepath": image_filename  # 添加文件路径信息
                 }
                 
                 # 释放资源
@@ -345,7 +396,7 @@ def extract_images_from_pdf(pdf_path: str, base_filename: str) -> Tuple[Dict, Di
     except Exception as e:
         print(f"  警告: 从PDF文件提取图片时出错: {str(e)}")
     
-    return image_index, {}
+    return image_index, image_files_saved
 
 def convert_all_files_in_directory(input_dir="doc_Data", output_dir="md_ConvertResult"):
     """

@@ -270,6 +270,25 @@ def merge_document_data(converted_dir, sliced_dir, output_dir, enable_base64_pro
         doc_output_dir = os.path.join(output_dir, doc_name)
         Path(doc_output_dir).mkdir(parents=True, exist_ok=True)
         
+        # 复制图片文件到merged_data目录
+        if 'images_index' in files:
+            # 获取converted_data中该文档的目录路径
+            converted_doc_dir = os.path.join(converted_dir, doc_name)
+            
+            # 遍历converted_data目录，复制所有图片文件到merged_data目录
+            if os.path.exists(converted_doc_dir):
+                for item in os.listdir(converted_doc_dir):
+                    item_path = os.path.join(converted_doc_dir, item)
+                    # 复制所有图片文件（不是JSON文件和Markdown文件）
+                    if os.path.isfile(item_path) and not item.endswith('.json') and not item.endswith('.md'):
+                        dest_path = os.path.join(doc_output_dir, item)
+                        try:
+                            import shutil
+                            shutil.copy2(item_path, dest_path)
+                            print(f"  Copied image: {item}")
+                        except Exception as e:
+                            print(f"  Warning: Failed to copy image {item}: {e}")
+        
         # 在文档文件夹中保存result.json
         output_file = os.path.join(doc_output_dir, "result.json")
         if save_json_file(merged_data, output_file):
