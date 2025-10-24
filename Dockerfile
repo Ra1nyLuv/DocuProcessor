@@ -17,8 +17,8 @@ RUN set -eux; \
     echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security/ $CODENAME-security main" >> /etc/apt/sources.list; \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        gcc \
-        curl \
+    gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件（利于缓存）
@@ -31,14 +31,16 @@ RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r re
 # 创建非 root 用户
 RUN useradd --create-home --shell /bin/bash appuser
 
+# 创建必要目录并设置权限
+RUN mkdir -p uploads processed temp converted_data sliced_data merged_data && \
+    chown -R appuser:appuser . && \
+    chmod -R 777 uploads processed temp converted_data sliced_data merged_data
+
 # 复制代码并直接指定用户（避免额外 chown 层）
 COPY --chown=appuser:appuser . .
 
 # 切换用户
 USER appuser
-
-# 创建必要目录（appuser 有权限）
-RUN mkdir -p uploads processed temp
 
 # 暴露端口
 EXPOSE 5000

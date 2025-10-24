@@ -2,22 +2,26 @@ version: '3.8'
 
 services:
   document-processor:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      - ./uploads:/app/uploads
-      - ./processed:/app/processed
-      - ./temp:/app/temp
+    # 移除卷挂载以避免权限问题
+    # volumes:
+    #   - ./uploads:/app/uploads
+    #   - ./processed:/app/processed
+    #   - ./temp:/app/temp
+    #   - ./converted_data:/app/converted_data
+    #   - ./sliced_data:/app/sliced_data
+    #   - ./merged_data:/app/merged_data
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=production
     restart: unless-stopped
     # 添加健康检查
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3

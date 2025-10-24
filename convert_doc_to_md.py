@@ -83,7 +83,7 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
     """
     将支持的文件格式转换为同名的 .md 文件
     修改文件生成路径结构为: converted_data/<文件名>/<文件名>.md 和 converted_data/<文件名>/images_index.json
-    对于.md文件，直接复制到目标位置而不进行转换
+    对于.md文件，直接复制到目标位置但仍然处理其中的图片
     
     Args:
         input_path (str): 输入文件路径
@@ -116,20 +116,42 @@ def convert_file_to_md(input_path, output_dir="converted_data"):
     md_filename = base_filename + '.md'
     md_path = os.path.join(file_output_dir, md_filename)
     
-    # 检查是否为.md文件，如果是则直接复制，否则进行转换
+    # 检查是否为.md文件，如果是则直接复制但仍然处理图片
     if input_path.lower().endswith('.md'):
-        print(f"检测到.md文件，直接复制到目标位置: {md_path}")
+        print(f"检测到.md文件，复制并处理其中的图片: {md_path}")
         try:
             # 直接复制.md文件
             import shutil
             shutil.copy2(input_path, md_path)
             print(f"成功将 {input_path} 复制到 {md_path}")
             
-            # 对于.md文件，我们不处理图片索引，直接返回成功
-            print("  未检测到图片")
+            # 读取复制后的文件内容以处理图片
+            with open(md_path, 'r', encoding='utf-8') as f:
+                md_content = f.read()
+            
+            # 处理图片索引
+            image_index = {}
+            image_files_saved = []  # 用于记录保存的图片文件路径
+            
+            # 从Markdown内容中提取base64图片
+            image_index, image_files_saved = extract_images_from_markdown(md_content, base_filename, file_output_dir)
+            
+            # 保存图片索引文件为 images_index.json
+            if image_index:
+                # 生成图片索引文件路径: converted_data/<文件名>/images_index.json
+                image_index_path = os.path.join(file_output_dir, "images_index.json")
+                with open(image_index_path, 'w', encoding='utf-8') as f:
+                    json.dump(image_index, f, ensure_ascii=False, indent=2)
+                
+                print(f"  ✓ 已保存 {len(image_index)} 张图片的base64编码及索引文件")
+                if image_files_saved:
+                    print(f"  ✓ 已保存 {len(image_files_saved)} 张原始图片文件: {', '.join(image_files_saved)}")
+            else:
+                print("  未检测到图片")
+            
             return True
         except Exception as e:
-            print(f"复制.md文件过程中出现错误: {str(e)}")
+            print(f"处理.md文件过程中出现错误: {str(e)}")
             return False
     else:
         try:
@@ -360,7 +382,7 @@ def extract_images_from_pdf(pdf_path: str, base_filename: str, output_dir: str) 
                 
                 # 生成图片文件名，添加编号前缀
                 image_count += 1
-                image_filename = f"{image_count:03d}_{base_filename}_image.png"
+                image_filename = f"{image_count}_{base_filename}_image.png"
                 image_filepath = os.path.join(output_dir, image_filename)
                 
                 # 获取图片数据

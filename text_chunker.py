@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 基于文本分析的文本分割切块工具
 该工具将Markdown文档按照文本单元进行分割，确保每个分割块的文本完整性
@@ -589,7 +588,7 @@ class SemanticChunker:
                 return True
         return False
     
-    def _extract_meaningful_title(self, chunk: str) -> str:
+    def _extract_title(self, chunk: str) -> str:
         """
         从文本块中提取有意义的标题
         
@@ -696,11 +695,10 @@ class SemanticChunker:
         image_id_counter = 1
         
         for i, chunk in enumerate(chunks, 1):
-            # 生成有意义的标题
             if i <= len(titles):
                 title = titles[i-1]
             else:
-                title = self._extract_meaningful_title(chunk)
+                title = self._extract_title(chunk)
             
             # 生成文件名（仅用于标识）
             filename = f"{i:03d}_{title}.md"

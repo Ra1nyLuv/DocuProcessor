@@ -11,6 +11,8 @@ import json
 import uuid
 import shutil
 import logging
+import threading
+import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -52,10 +54,15 @@ BASE_DIR = Path(__file__).parent
 UPLOAD_FOLDER = BASE_DIR / "uploads"
 PROCESSED_FOLDER = BASE_DIR / "processed"
 TEMP_FOLDER = BASE_DIR / "temp"
+CONVERTED_FOLDER = BASE_DIR / "converted_data"
+SLICED_FOLDER = BASE_DIR / "sliced_data"
+MERGED_FOLDER = BASE_DIR / "merged_data"
 
-# 确保目录存在
-for folder in [UPLOAD_FOLDER, PROCESSED_FOLDER, TEMP_FOLDER]:
+# 确保目录存在并设置权限
+for folder in [UPLOAD_FOLDER, PROCESSED_FOLDER, TEMP_FOLDER, CONVERTED_FOLDER, SLICED_FOLDER, MERGED_FOLDER]:
     folder.mkdir(exist_ok=True)
+    # 设置目录权限为777，确保所有用户都有读写权限
+    os.chmod(folder, 0o777)
 
 # 支持的文件类型
 ALLOWED_EXTENSIONS = {
@@ -76,6 +83,69 @@ def cleanup_temp_files(task_id: str):
     task_temp_dir = TEMP_FOLDER / task_id
     if task_temp_dir.exists():
         shutil.rmtree(task_temp_dir)
+
+def cleanup_intermediate_files():
+    """清理中间处理文件"""
+    # 清理转换后的数据目录
+    for item in CONVERTED_FOLDER.iterdir():
+        if item.is_file():
+            item.unlink()
+        elif item.is_dir():
+            shutil.rmtree(item)
+    
+    # 清理分块后的数据目录
+    for item in SLICED_FOLDER.iterdir():
+        if item.is_file():
+            item.unlink()
+        elif item.is_dir():
+            shutil.rmtree(item)
+    
+    # 清理合并后的数据目录
+    for item in MERGED_FOLDER.iterdir():
+        if item.is_file():
+            item.unlink()
+        elif item.is_dir():
+            shutil.rmtree(item)
+
+def cleanup_all_data():
+    """清理所有数据文件和目录"""
+    # 清理上传目录
+    if UPLOAD_FOLDER.exists():
+        for item in UPLOAD_FOLDER.iterdir():
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+    
+    # 清理处理目录
+    if PROCESSED_FOLDER.exists():
+        for item in PROCESSED_FOLDER.iterdir():
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+    
+    # 清理临时目录
+    if TEMP_FOLDER.exists():
+        for item in TEMP_FOLDER.iterdir():
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+    
+    # 清理中间处理文件
+    cleanup_intermediate_files()
+    
+    logger.info("所有数据文件和目录已清理完成")
+
+def scheduled_cleanup():
+    """定时清理任务，每5分钟执行一次"""
+    while True:
+        time.sleep(300)  # 等待5分钟 (300秒)
+        try:
+            cleanup_all_data()
+        except Exception as e:
+            logger.error(f"定时清理任务出错: {str(e)}")
 
 def secure_filename_chinese(filename: str) -> str:
     """
@@ -115,6 +185,10 @@ def process_document():
         if file.filename == '':
             return jsonify({"error": "文件名为空"}), 400
         
+        # 类型检查
+        if file.filename is None:
+            return jsonify({"error": "文件名为空"}), 400
+            
         if not allowed_file(file.filename):
             return jsonify({"error": "不支持的文件类型"}), 400
         
@@ -130,13 +204,10 @@ def process_document():
         file.save(file_path)
         logger.info(f"文件已保存: {file_path}")
         
-        # 创建处理目录结构
-        converted_dir = task_temp_dir / "converted_data"
-        sliced_dir = task_temp_dir / "sliced_data"
-        merged_dir = task_temp_dir / "merged_data"
-        
-        for directory in [converted_dir, sliced_dir, merged_dir]:
-            directory.mkdir(exist_ok=True)
+        # 使用全局目录而不是临时目录
+        converted_dir = CONVERTED_FOLDER
+        sliced_dir = SLICED_FOLDER
+        merged_dir = MERGED_FOLDER
         
         # 步骤1: 文档转换
         logger.info(f"任务 {task_id}: 开始文档转换")
@@ -168,24 +239,26 @@ def process_document():
         result_dir.mkdir(exist_ok=True)
         
         # 为每个文档创建对应的文件夹并复制result.json
-        result_filenames = []
+        result_files = []
         for doc_name, result_file_path in merged_files:
             doc_result_dir = result_dir / doc_name
             doc_result_dir.mkdir(exist_ok=True)
             shutil.copy(result_file_path, doc_result_dir / "result.json")
-            result_filenames.append(f"{doc_name}/result.json")
+            result_files.append(f"{doc_name}/result.json")
         
         # 清理临时文件
         cleanup_temp_files(task_id)
+        # 清理中间处理文件
+        cleanup_intermediate_files()
         
-        # 返回结果（只返回第一个文档的结果，保持接口兼容性）
-        result_filename = result_filenames[0] if result_filenames else "result.json"
-        # 不再进行URL编码，直接使用原始文件名
+        # 返回结果
+        # 不再对文件路径进行URL编码，直接使用原始路径
+        download_urls = [f"/api/v1/download/{task_id}/{filename}" for filename in result_files]
         response_data = {
             "task_id": task_id,
             "status": "completed",
-            "result_file": result_filename,
-            "download_url": f"/api/v1/download/{task_id}/{result_filename}"
+            "result_files": result_files,
+            "download_urls": download_urls
         }
         # 使用json.dumps直接控制编码选项
         import json
@@ -199,6 +272,8 @@ def process_document():
     except Exception as e:
         logger.error(f"任务 {task_id} 处理失败: {str(e)}")
         cleanup_temp_files(task_id)
+        # 清理中间处理文件
+        cleanup_intermediate_files()
         return jsonify({"error": f"处理失败: {str(e)}"}), 500
 
 @app.route('/api/v1/batch-process', methods=['POST'])
@@ -225,7 +300,7 @@ def batch_process():
         
         saved_files = []
         for file in files:
-            if file and allowed_file(file.filename):
+            if file and file.filename and allowed_file(file.filename):
                 filename = secure_filename_chinese(file.filename)
                 file_path = input_dir / filename
                 file.save(file_path)
@@ -235,13 +310,10 @@ def batch_process():
         if not saved_files:
             return jsonify({"error": "没有有效的文件被上传"}), 400
         
-        # 创建处理目录结构
-        converted_dir = task_temp_dir / "converted_data"
-        sliced_dir = task_temp_dir / "sliced_data"
-        merged_dir = task_temp_dir / "merged_data"
-        
-        for directory in [converted_dir, sliced_dir, merged_dir]:
-            directory.mkdir(exist_ok=True)
+        # 使用全局目录而不是临时目录
+        converted_dir = CONVERTED_FOLDER
+        sliced_dir = SLICED_FOLDER
+        merged_dir = MERGED_FOLDER
         
         # 步骤1: 文档转换
         logger.info(f"任务 {task_id}: 开始批量文档转换")
@@ -305,6 +377,8 @@ def batch_process():
     except Exception as e:
         logger.error(f"批量任务 {task_id} 处理失败: {str(e)}")
         cleanup_temp_files(task_id)
+        # 清理中间处理文件
+        cleanup_intermediate_files()
         return jsonify({"error": f"批量处理失败: {str(e)}"}), 500
 
 @app.route('/api/v1/download/<task_id>/<chinese_path:filename>', methods=['GET'])
@@ -346,6 +420,10 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "服务器内部错误"}), 500
+
+# 启动定时清理线程
+cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
+cleanup_thread.start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
