@@ -1,0 +1,25 @@
+[
+    {
+        "id": 1,
+        "title": "实 验 内 容 及 过 程",
+        "content": "",
+        "is_title": true,
+        "type": "text"
+    },
+    {
+        "id": 2,
+        "title": "",
+        "content": "近年来，随着新零售行业的快速发展，消费者购买商品时有了更多的对比和选择，导致超市行业的竞争日益激烈，利润空间不断压缩。",
+        "is_title": false,
+        "type": "text"
+    },
+    {
+        "id": 3,
+        "title": "example_title",
+        "content": "![](data:image/png;base64...)",
+        "is_title": true,
+        "image_id": 1,
+        "type": "image",
+        "base64": "iVBORw0KGgoAAAANSUhEUgAABb4AA...<后续省略>)"
+    }
+]

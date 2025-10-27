@@ -190,3 +190,10 @@ result.json
 
 # Docker
 docker-compose.override.yml
+
+# Data Directories
+merged_data/
+converted_data/
+sliced_data/
+!downloaded_result.json
+!example_result.json

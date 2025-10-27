@@ -107,46 +107,6 @@ def cleanup_intermediate_files():
         elif item.is_dir():
             shutil.rmtree(item)
 
-def cleanup_all_data():
-    """清理所有数据文件和目录"""
-    # 清理上传目录
-    if UPLOAD_FOLDER.exists():
-        for item in UPLOAD_FOLDER.iterdir():
-            if item.is_file():
-                item.unlink()
-            elif item.is_dir():
-                shutil.rmtree(item)
-    
-    # 清理处理目录
-    if PROCESSED_FOLDER.exists():
-        for item in PROCESSED_FOLDER.iterdir():
-            if item.is_file():
-                item.unlink()
-            elif item.is_dir():
-                shutil.rmtree(item)
-    
-    # 清理临时目录
-    if TEMP_FOLDER.exists():
-        for item in TEMP_FOLDER.iterdir():
-            if item.is_file():
-                item.unlink()
-            elif item.is_dir():
-                shutil.rmtree(item)
-    
-    # 清理中间处理文件
-    cleanup_intermediate_files()
-    
-    logger.info("所有数据文件和目录已清理完成")
-
-def scheduled_cleanup():
-    """定时清理任务，每5分钟执行一次"""
-    while True:
-        time.sleep(300)  # 等待5分钟 (300秒)
-        try:
-            cleanup_all_data()
-        except Exception as e:
-            logger.error(f"定时清理任务出错: {str(e)}")
-
 def secure_filename_chinese(filename: str) -> str:
     """
     处理中文文件名的secure_filename函数
@@ -238,18 +198,25 @@ def process_document():
         result_dir = PROCESSED_FOLDER / task_id
         result_dir.mkdir(exist_ok=True)
         
-        # 为每个文档创建对应的文件夹并复制result.json
+        # 为每个文档创建对应的文件夹并复制result.json和图片文件
         result_files = []
         for doc_name, result_file_path in merged_files:
             doc_result_dir = result_dir / doc_name
             doc_result_dir.mkdir(exist_ok=True)
+            # 复制result.json文件
             shutil.copy(result_file_path, doc_result_dir / "result.json")
             result_files.append(f"{doc_name}/result.json")
+            # 复制图片文件
+            merged_doc_dir = merged_dir / doc_name
+            if merged_doc_dir.exists():
+                for item in merged_doc_dir.iterdir():
+                    if item.is_file() and item.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']:
+                        shutil.copy(item, doc_result_dir / item.name)
         
         # 清理临时文件
-        cleanup_temp_files(task_id)
+        # cleanup_temp_files(task_id)
         # 清理中间处理文件
-        cleanup_intermediate_files()
+        # cleanup_intermediate_files()
         
         # 返回结果
         # 不再对文件路径进行URL编码，直接使用原始路径
@@ -345,13 +312,20 @@ def batch_process():
         if not merged_files:
             raise Exception("未找到合并后的文件")
         
-        # 为每个文档创建对应的文件夹并复制result.json
+        # 为每个文档创建对应的文件夹并复制result.json和图片文件
         result_files = []
         for doc_name, result_file_path in merged_files:
             doc_result_dir = result_dir / doc_name
             doc_result_dir.mkdir(exist_ok=True)
+            # 复制result.json文件
             shutil.copy(result_file_path, doc_result_dir / "result.json")
             result_files.append(f"{doc_name}/result.json")
+            # 复制图片文件
+            merged_doc_dir = merged_dir / doc_name
+            if merged_doc_dir.exists():
+                for item in merged_doc_dir.iterdir():
+                    if item.is_file() and item.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']:
+                        shutil.copy(item, doc_result_dir / item.name)
         
         # 清理临时文件
         cleanup_temp_files(task_id)
@@ -422,8 +396,8 @@ def internal_error(error):
     return jsonify({"error": "服务器内部错误"}), 500
 
 # 启动定时清理线程
-cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
-cleanup_thread.start()
+# cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
+# cleanup_thread.start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
