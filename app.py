@@ -78,35 +78,6 @@ def generate_task_id() -> str:
     """生成唯一任务ID"""
     return str(uuid.uuid4())
 
-def cleanup_temp_files(task_id: str):
-    """清理临时文件"""
-    task_temp_dir = TEMP_FOLDER / task_id
-    if task_temp_dir.exists():
-        shutil.rmtree(task_temp_dir)
-
-def cleanup_intermediate_files():
-    """清理中间处理文件"""
-    # 清理转换后的数据目录
-    for item in CONVERTED_FOLDER.iterdir():
-        if item.is_file():
-            item.unlink()
-        elif item.is_dir():
-            shutil.rmtree(item)
-    
-    # 清理分块后的数据目录
-    for item in SLICED_FOLDER.iterdir():
-        if item.is_file():
-            item.unlink()
-        elif item.is_dir():
-            shutil.rmtree(item)
-    
-    # 清理合并后的数据目录
-    for item in MERGED_FOLDER.iterdir():
-        if item.is_file():
-            item.unlink()
-        elif item.is_dir():
-            shutil.rmtree(item)
-
 def secure_filename_chinese(filename: str) -> str:
     """
     处理中文文件名的secure_filename函数
@@ -213,10 +184,7 @@ def process_document():
                     if item.is_file() and item.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']:
                         shutil.copy(item, doc_result_dir / item.name)
         
-        # 清理临时文件
-        # cleanup_temp_files(task_id)
-        # 清理中间处理文件
-        # cleanup_intermediate_files()
+
         
         # 返回结果
         # 不再对文件路径进行URL编码，直接使用原始路径
@@ -238,9 +206,6 @@ def process_document():
         
     except Exception as e:
         logger.error(f"任务 {task_id} 处理失败: {str(e)}")
-        cleanup_temp_files(task_id)
-        # 清理中间处理文件
-        cleanup_intermediate_files()
         return jsonify({"error": f"处理失败: {str(e)}"}), 500
 
 @app.route('/api/v1/batch-process', methods=['POST'])
@@ -327,8 +292,7 @@ def batch_process():
                     if item.is_file() and item.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp']:
                         shutil.copy(item, doc_result_dir / item.name)
         
-        # 清理临时文件
-        cleanup_temp_files(task_id)
+
         
         # 返回结果
         # 不再对文件路径进行URL编码，直接使用原始路径
@@ -350,9 +314,6 @@ def batch_process():
         
     except Exception as e:
         logger.error(f"批量任务 {task_id} 处理失败: {str(e)}")
-        cleanup_temp_files(task_id)
-        # 清理中间处理文件
-        cleanup_intermediate_files()
         return jsonify({"error": f"批量处理失败: {str(e)}"}), 500
 
 @app.route('/api/v1/download/<task_id>/<chinese_path:filename>', methods=['GET'])
@@ -395,9 +356,6 @@ def not_found(error):
 def internal_error(error):
     return jsonify({"error": "服务器内部错误"}), 500
 
-# 启动定时清理线程
-# cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
-# cleanup_thread.start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
